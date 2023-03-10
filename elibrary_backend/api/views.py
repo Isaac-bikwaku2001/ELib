@@ -5,8 +5,7 @@ from rest_framework.views import APIView
 from elibrary.models import *
 from .serializers import *
 from rest_framework import status
-from django.contrib.auth import authenticate
-from django.http import HttpResponse
+from django.contrib.auth import authenticate, login, logout
 
 # API ACTEUR
 @api_view(['GET'])
@@ -52,11 +51,31 @@ class detailView(APIView):
         except:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
+class CreateUserView(APIView):
+    def post(self, request):
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            token, created = Token.objects.get_or_create(user=user)
+            return Response({'token': token.key}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class LoginView(APIView):
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
-        
+        user = authenticate(username=username, password=password)
+        if user:
+            login(request, user)
+            token, _ = Token.objects.get_or_create(user=user)
+            return Response({'token': token.key}, status=status.HTTP_200_OK)
+        return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+class LogoutView(APIView):
+    def post(self, request):
+        logout(request)
+        return Response(status=status.HTTP_200_OK)
+    
 # @api_view(['POST'])
 # def add(request):
 #     serializer = AuteurSerializer(data=request.data)
